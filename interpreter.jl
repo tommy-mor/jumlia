@@ -1,6 +1,6 @@
 using Test
 using Random
-using Flux: onehotbatch, Dense, softmax, Chain, ADAM, params, train!
+using Flux: onehotbatch, Dense, softmax, Chain, ADAM, params, train!, mse, gradient, Descent
 
 abstract type ExprAST end
 
@@ -31,37 +31,35 @@ outputraw = float.(mapslices(((x,y),) -> x + y, data, dims = [2]))
 
 @test interpret.(inputexpressions) == outputraw
 
-features((l,r)) = float.([l,r])
+features((l,r)) = float.((l+r, [l,r]))
 features(a::AbstractArray) = hcat(features.(a)...)
 
 X = (features(inputraw))
 y = outputraw'
 m = Chain(Dense(2, 10), Dense(10, 1), softmax)
 
-function loss(x, y)
-    l = 0
-    println("x: $(x)")
-    println("y: $(y)")
-    for idx in length(y)
-        l += y[idx] - m(x[:,idx])[1]
-    end
-    
-    return l
+function loss(out, inp)
+    return mse(m(inp), out)
 end
 
 #loss(x, y) = (m(x) - y)^2
-opt = ADAM()
+opt = Descent(.1)
 
 # helper monitor function
 function monitor(e)
-    println("epoch $(lpad(e, 4)): loss = $(round(loss(X,y); digits=4))")
+    l = 0
+    for x in X
+        l += mse(x[1], x[2])
+    end
+
+    println("epoch $(lpad(e, 4)): loss = $(round(l; digits=4))")
     #@show (m∘float).([1 2; 3 4; 100 100])
 end
 
 
 # training
 for e in 0:1000
-    train!(loss, params(m), [(X,y)], opt)
+    train!(loss, params(m), X, opt)
     if e % 50 == 0; monitor(e) end
 end
 
