@@ -34,37 +34,34 @@ outputraw = float.(mapslices(((x,y),) -> x + y, data, dims = [2]))
 features((l,r)) = float.((l+r, [l,r]))
 features(a::AbstractArray) = hcat(features.(a)...)
 
-X = (features(inputraw))
-y = outputraw'
-m = Chain(Dense(2, 10), Dense(10, 1), softmax)
+function tr()
+    X = (features(inputraw))
+    y = outputraw'
+    m = Chain(Dense(2, 10), Dense(10, 1), softmax)
 
-function loss(out, inp)
-    return mse(m(inp), out)
-end
-
-#loss(x, y) = (m(x) - y)^2
-opt = Descent(.1)
-
-# helper monitor function
-function monitor(e)
-    l = 0
-    for x in X
-        l += mse(x[1], x[2])
+    function loss(out, inp)
+        return mse(m(inp), out)
     end
 
-    println("epoch $(lpad(e, 4)): loss = $(round(l; digits=4))")
-    #@show (m∘float).([1 2; 3 4; 100 100])
+    #loss(x, y) = (m(x) - y)^2
+    opt = ADAM()
+
+    # helper monitor function
+    function monitor(e)
+        l = 0
+        for x in X
+            l += loss(x[1], x[2])
+        end
+
+        println("epoch $(lpad(e, 4)): loss = $(round(l; digits=4))")
+        #@show m([3.0, 3.0])
+    end
+
+    # training
+    for e in 0:1000
+        train!(loss, params(m), X, opt)
+        if e % 50 == 0; monitor(e) end
+    end
 end
 
-
-# training
-for e in 0:1000
-    train!(loss, params(m), X, opt)
-    if e % 50 == 0; monitor(e) end
-end
-
-
-
-#println(a)
-#println("test")
-#println(a[1,:])
+tr()
